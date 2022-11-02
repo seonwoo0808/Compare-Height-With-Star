@@ -1,6 +1,7 @@
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.templating import Jinja2Templates 
 from typing import List
+import asyncio
 
 app = FastAPI()
 
@@ -26,18 +27,20 @@ class ConnectionManager:
             await connection.send_text(message)
 
 
-manager = ConnectionManager()
+web_client_manager = ConnectionManager()
+
+@app.websocket("/web_clinet/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, client_id: int):
+	await web_client_manager.connect(websocket)
+	try:
+		while True:
+			await asyncio.sleep(0.1)
+	except WebSocketDisconnect:
+		web_client_manager.disconnect(websocket)
 
 @app.get("/")
 async def index():
 	return templates.TemplateResponse("index.html", {})
-
-@app.websocket("/image_socket")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        await websocket.send_text(f"Message text was: {data}")
 
 @app.get("/check_server")
 async def check_server():
